@@ -10,4 +10,4 @@ RFM analysis is about analyzing customers behaviour and classify them based on :
 With the analysis, we can indicate customer engangement, retention, and customer's lifetime value.
 
 Link : https://www.kaggle.com/datasets/raosuny/e-commerce-purchase-dataset
-###### Disclaimer : This is just for fun project. Don't use it as a real-case implementation! Do your own research :)
+##### ***Disclaimer*** : This is just for fun project. Don't use it as a real-case implementation! Do your own research :)
