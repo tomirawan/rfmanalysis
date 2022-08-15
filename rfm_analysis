@@ -1,0 +1,77 @@
+--save the final result as a new table
+
+CREATE TABLE rfm.segmented_customer as(
+    
+--buat tabel yang terdiri dari 1 customer dgn last_payment, frekuensi pembelian, dan total amount
+
+--cte 1
+with pd as(         
+    select customer_id,
+        max(date) as last_payment,
+        --tentukan frekuensi dengan COUNT
+        round(count(date) * avg(time_on_site)) as freq,
+        --tentukan monetary dengan SUM
+        sum(price_usd) as mon 
+    from rfm.purchase_data
+    group by customer_id
+),
+
+--mengumpulkan recency, freq, mon dlm 1 tabel
+--dengan menggabungkan dg cte sebelumnya (pd)
+
+--cte 2
+pd2 as (
+    select pd.customer_id,
+       pd.last_payment,
+        --tentukan recency dengan (last payment-first payment)
+        ('2018-11-30' - last_payment) as recency,
+        freq,
+        mon
+    from pd
+    
+    --menggunakan join agar dapat menggabungkan 
+    --dengan tabel dari cte sebelumnya
+    
+    join rfm.purchase_data as ori 
+        on ori.customer_id = pd.customer_id
+    group by pd.customer_id, pd.last_payment, freq, mon
+    order by customer_id asc
+    ),
+
+--cte ke 3 sebagai fungsi untuk memanggil tabel akhir
+--dan mengurutkannya menjadi 1-5
+
+--cte 3
+rfm as( 
+    select *,
+            concat(R, F, M) as rfm_class --menggabungkan nilai r, f, dan m
+    from (
+        select *,
+        NTILE(5) OVER (ORDER BY recency desc) AS R, -- proses ranking
+        NTILE(5) OVER (ORDER BY freq asc ) AS F, 
+        NTILE(5) OVER (ORDER BY mon asc ) AS M 
+        from pd2
+        order by customer_id) as rank
+    )
+
+--let's start segmenting the customer based on RFM value
+--RFM value will be segmented by 9 category
+
+SELECT rfm.customer_id, 
+    rfm.recency, rfm.freq as frequency, rfm.mon as monetary,
+    CASE 
+        WHEN rfm_class SIMILAR TO '5[4-5][1-5]' THEN 'Best Customers'
+        WHEN rfm_class SIMILAR TO '[1-2]5[1-5]' THEN 'Big Spenders' 
+        WHEN rfm_class SIMILAR TO '[3-4][4-5][1-5]' THEN 'Loyal Customers' 
+        WHEN rfm_class SIMILAR TO '[4-5][2-3][1-5]' THEN 'Potensial Loyalist'
+        WHEN rfm_class SIMILAR TO '[1-2][3-4][1-5]' THEN 'At Risk!'
+        WHEN rfm_class SIMILAR TO '51[1-5]' THEN 'New Customers' 
+        WHEN rfm_class SIMILAR TO '41[1-5]' THEN 'Promising' 
+        WHEN rfm_class SIMILAR TO '3[2-3][1-5]' THEN 'Need Attention'
+        WHEN rfm_class SIMILAR TO '31[1-5]' THEN 'About to Sleep'
+        WHEN rfm_class SIMILAR TO '[1-2][1-2][1-5]' THEN 'Hibernating'
+ELSE NULL 
+END AS rfm_category 
+FROM rfm
+)
+--end
